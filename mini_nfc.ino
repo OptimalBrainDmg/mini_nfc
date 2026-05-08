@@ -321,10 +321,15 @@ bool sameMini(uint8_t uid[]) {
 uint8_t nfcReadMiniData() {
   uint8_t buffer[4];
   for (int i = 0; i < NFCDATASIZE/NFC_PAGE_SIZE; i++) {
-    if (!nfc.ntag2xx_ReadPage(NFC_DATA_PAGE_OFFSET+i, buffer)) {
+    bool ok = false;
+    for (uint8_t retry = 0; retry < 3; retry++) {
+      if (nfc.ntag2xx_ReadPage(NFC_DATA_PAGE_OFFSET+i, buffer)) { ok = true; break; }
+      delay(10);
+    }
+    if (!ok) {
       Serial.print("error reading page "); Serial.println(NFC_DATA_PAGE_OFFSET+i);
-      nfcPageData[i * NFC_PAGE_SIZE] = NULL;
-      miniUid[0]--;
+      nfcPageData[i * NFC_PAGE_SIZE] = 0;
+      memset(miniUid, 0xFF, sizeof(miniUid)); // sentinel: force re-read on next scan
       return 0;
     }
     for (uint8_t j = 0; j < NFC_PAGE_SIZE; j++) {
@@ -332,7 +337,7 @@ uint8_t nfcReadMiniData() {
       nfcPageData[i * NFC_PAGE_SIZE + j] = buffer[j];
     }
   }
-  nfcPageData[NFCDATASIZE] = NULL;
+  nfcPageData[NFCDATASIZE] = 0;
   return 1;
 }
 
