@@ -11,7 +11,7 @@
 
 #include <Wire.h>
 #include <SPI.h>
-#include <Adafruit_PN532.h>
+#include <DFRobot_PN532.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_ILI9341.h>
 #include <SdFat.h>                // SD card & FAT filesystem library
@@ -20,15 +20,15 @@
 #include <ArduinoJson.h>          // https://arduinojson.org — install via Library Manager
 
 #define PN532_IRQ   (2)
-#define PN532_RESET (3)  
+#define POLLING     (0)
 #define TFT_CS      (9)
 #define TFT_DC      (10)
 #define SD_CS       (5)
 
 void determineGame();
 
-// PN5232 breakout board attached via I2C
-Adafruit_PN532 nfc(PN532_IRQ, PN532_RESET);
+// PN532 breakout board attached via I2C (polling mode)
+DFRobot_PN532_IIC nfc(PN532_IRQ, POLLING);
 
 // Adafruit 2.4" TFT featherwing
 Adafruit_ILI9341 tft = Adafruit_ILI9341(TFT_CS, TFT_DC);
@@ -166,13 +166,11 @@ void setup(void) {
   tft.print(gameCount); tft.println(" game(s) loaded");
 
   tft.println("Initializing Scanner...");
-  nfc.begin();
-  
-  uint32_t versiondata = nfc.getFirmwareVersion();
-  if (! versiondata) {
+  while (!nfc.begin()) {
     tft.setTextColor(ILI9341_RED);
-    tft.println("FAILED");
-    while (1); delay(1000);
+    tft.println("FAILED - retrying...");
+    tft.setTextColor(ILI9341_DARKGREEN);
+    delay(1000);
   }
   tft.println("Scanner Initialized");
 
@@ -184,55 +182,24 @@ void unableToScan() {
 }
 
 void scanMini() {
-  uint8_t success;
-  uint8_t uidLength;  
-  uint8_t uid[] = { 0, 0, 0, 0, 0, 0, 0 }; 
-  char gameBuffer[5];
-  uint8_t data[32];
-  char faction;
-  
-  // scan a mini!
-  if (!nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &uidLength)) {
-    Serial.println("failed");
-    Serial.print(uidLength, HEX);
-    Serial.println("");
+  if (!nfc.scan()) { return; }
+
+  DFRobot_PN532::sCard_t card = nfc.getInformation();
+  if (card.uidlenght != 7) {
+    Serial.print("Unexpected UID length: "); Serial.println(card.uidlenght);
     return;
   }
 
-  // designed to work with NTAG 215
-  if (uidLength != 7) {
-    Serial.println("This doesn't seem to be an NTAG203 tag (UUID length != 7 bytes)!");
-    return;
-  }
+  if (sameMini(card.uid)) { return; }
+  memcpy(miniUid, card.uid, 7);
 
-  // check to see if it's the same id or not
-  if (sameMini(uid)) { return; }
-
-  for (uint i = 0; i < 7; i++) {
-    miniUid[i] = uid[i];
-  }
-
-  // NTAG2x3 cards have 39*4 bytes of user pages (156 user bytes),
-  // starting at page 4 ... larger cards just add pages to the end of
-  // this range:
-
-  // See: http://www.nxp.com/documents/short_data_sheet/NTAG203_SDS.pdf
-
-  // TAG Type       PAGES   USER START    USER STOP
-  // --------       -----   ----------    ---------
-  // NTAG 203       42      4             39
-  // NTAG 213       45      4             39
-  // NTAG 215       135     4             129
-  // NTAG 216       231     4             225
-
-  if(nfcReadMiniData()) {
+  if (nfcReadMiniData()) {
     Serial.println("this is what I got: ");
     Serial.println(&nfcPageData[1]);
     Serial.print("faction: "); Serial.println(getFactionId());
     determineGame();
     idMini(getFactionId(), getMiniContent());
   }
-
 }
 
 void loop(void) {
@@ -323,7 +290,7 @@ uint8_t nfcReadMiniData() {
   for (int i = 0; i < NFCDATASIZE/NFC_PAGE_SIZE; i++) {
     bool ok = false;
     for (uint8_t retry = 0; retry < 3; retry++) {
-      if (nfc.ntag2xx_ReadPage(NFC_DATA_PAGE_OFFSET+i, buffer)) { ok = true; break; }
+      if (nfc.readNTAG(buffer, NFC_DATA_PAGE_OFFSET+i) == 1) { ok = true; break; }
       delay(10);
     }
     if (!ok) {
