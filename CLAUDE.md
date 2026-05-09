@@ -80,9 +80,9 @@ e.g.  [FWW](B) Brotherhood Paladin
 e.g.  [FWW](BN) Defected Paladin
 ```
 - Bytes 0–1 are a header (`[` at index 1); game code starts at index 2
-- `determineGame()` null-terminates `]` **before** `getFactionId()`/`getFactionId2()`/`getMiniContent()` are called — call order in `scanMini()` matters
-- `getFactionId()` returns the primary faction char; `getFactionId2()` returns the secondary faction char (or `'\0'` if none)
-- `getMiniContent()` skips `(X) ` (5 bytes) for one faction or `(XY) ` (6 bytes) for two
+- `determineGame()` null-terminates `]` **before** `parseFactionIds()`/`getMiniContent()` are called — call order in `scanMini()` matters
+- `parseFactionIds(fids, MAX_FACTIONS_PER_MINI)` fills a `char[]` with up to 3 faction IDs and returns the count; 0 means no faction encoded (falls back to `*` wildcard in `idMini()`)
+- `getMiniContent()` scans forward to find `)` then skips past it — faction count–agnostic
 
 **Adding a new game:**
 1. Add an entry to `sdcard/games.json` (copy updated file to SD card)

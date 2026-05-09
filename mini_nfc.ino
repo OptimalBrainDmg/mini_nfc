@@ -26,7 +26,7 @@
 #define SD_CS       (5)
 
 void determineGame();
-char getFactionId2();
+uint8_t parseFactionIds(char[], uint8_t);
 
 // PN5232 breakout board attached via I2C
 Adafruit_PN532 nfc(PN532_IRQ, PN532_RESET);
@@ -57,10 +57,11 @@ uint8_t nfcDataPos;
 char nfcPageData[NFCDATASIZE + 1];
 
 
-#define MAX_GAME_COUNT       8
-#define MAX_TOTAL_FACTIONS  64
-#define MAX_NAME_LEN        32
-#define MAX_CODE_LEN         8
+#define MAX_GAME_COUNT          8
+#define MAX_TOTAL_FACTIONS     64
+#define MAX_FACTIONS_PER_MINI   3
+#define MAX_NAME_LEN           32
+#define MAX_CODE_LEN            8
 
 #define GAME_UNKNOWN        99
 
@@ -232,7 +233,9 @@ void scanMini() {
     Serial.println("this is what I got: ");
     Serial.println(&nfcPageData[1]);
     determineGame();
-    idMini(getFactionId(), getFactionId2(), getMiniContent());
+    char fids[MAX_FACTIONS_PER_MINI];
+    uint8_t fidCount = parseFactionIds(fids, MAX_FACTIONS_PER_MINI);
+    idMini(fids, fidCount, getMiniContent());
   }
 }
 
@@ -263,7 +266,7 @@ void changeGame(uint8_t g) {
   }
 }
 
-void idMini(char fid, char fid2, char *name) {
+void idMini(char fids[], uint8_t fidCount, char *name) {
   int margin = 8;
 
   tft.fillRect(0, 0, 320, 140, ILI9341_WHITE);
@@ -287,33 +290,24 @@ void idMini(char fid, char fid2, char *name) {
   uint8_t fstart = GAMES[currentGame].factionStart;
   uint8_t fcount = GAMES[currentGame].factionCount;
 
-  GameFaction *faction = NULL;
-  for (uint8_t i = 0; i < fcount; i++) {
-    GameFaction &f = ALL_FACTIONS[fstart + i];
-    if (f.id == fid || (fid == '\0' && f.id == '*')) {
-      faction = &f;
-      break;
-    }
-  }
-
   tft.setTextSize(2); tft.setCursor(margin, tft.getCursorY()+4);
-  if (faction) {
-    tft.setTextColor(faction->color);
-    tft.println(faction->name);
-  } else {
-    tft.println(" ");
-  }
 
-  if (fid2 != '\0') {
-    GameFaction *faction2 = NULL;
+  if (fidCount == 0) {
+    GameFaction *faction = NULL;
     for (uint8_t i = 0; i < fcount; i++) {
-      GameFaction &f = ALL_FACTIONS[fstart + i];
-      if (f.id == fid2) { faction2 = &f; break; }
+      if (ALL_FACTIONS[fstart + i].id == '*') { faction = &ALL_FACTIONS[fstart + i]; break; }
     }
-    if (faction2) {
-      tft.setCursor(margin, tft.getCursorY());
-      tft.setTextColor(faction2->color);
-      tft.println(faction2->name);
+    if (faction) { tft.setTextColor(faction->color); tft.println(faction->name); }
+    else          { tft.println(" "); }
+  } else {
+    for (uint8_t fi = 0; fi < fidCount; fi++) {
+      if (fi > 0) tft.setCursor(margin, tft.getCursorY());
+      GameFaction *faction = NULL;
+      for (uint8_t i = 0; i < fcount; i++) {
+        if (ALL_FACTIONS[fstart + i].id == fids[fi]) { faction = &ALL_FACTIONS[fstart + i]; break; }
+      }
+      if (faction)      { tft.setTextColor(faction->color); tft.println(faction->name); }
+      else if (fi == 0) { tft.println(" "); }
     }
   }
 
@@ -353,21 +347,18 @@ uint8_t nfcReadMiniData() {
   return 1;
 }
 
-char getFactionId() {
-  for (uint8_t i = 0; i < 12; i++) {
-    if ((nfcPageData[i] == ']' || nfcPageData[i] == '\0') && nfcPageData[i+1] == '(') return (char) nfcPageData[i+2];
-  }
-  return '\0';
-}
-
-char getFactionId2() {
+uint8_t parseFactionIds(char fids[], uint8_t maxFactions) {
   for (uint8_t i = 0; i < 12; i++) {
     if ((nfcPageData[i] == ']' || nfcPageData[i] == '\0') && nfcPageData[i+1] == '(') {
-      if (nfcPageData[i+3] != ')') return (char) nfcPageData[i+3];
-      return '\0';
+      uint8_t count = 0;
+      uint8_t j = i + 2;
+      while (nfcPageData[j] != ')' && nfcPageData[j] != '\0' && count < maxFactions) {
+        fids[count++] = nfcPageData[j++];
+      }
+      return count;
     }
   }
-  return '\0';
+  return 0;
 }
 
 void determineGame() {
@@ -390,8 +381,9 @@ char *getMiniContent() {
   for (uint8_t i = 3; i < 12; i++) {
     if (nfcPageData[i] == '\0' && nfcPageData[i+1] == ' ') return &nfcPageData[i+2];
     if (nfcPageData[i] == '\0' && nfcPageData[i+1] == '(') {
-      if (nfcPageData[i+3] != ')') return &nfcPageData[i+6]; // (XY) + space
-      return &nfcPageData[i+5];                             // (X) + space
+      for (uint8_t j = i+2; j < i+8; j++) {
+        if (nfcPageData[j] == ')') return &nfcPageData[j+2];
+      }
     }
   }
   return &nfcPageData[NFCDATASIZE];
