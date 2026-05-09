@@ -228,7 +228,6 @@ void scanMini() {
   if(nfcReadMiniData()) {
     Serial.println("this is what I got: ");
     Serial.println(&nfcPageData[1]);
-    Serial.print("faction: "); Serial.println(getFactionId());
     determineGame();
     idMini(getFactionId(), getMiniContent());
   }
@@ -355,8 +354,7 @@ void determineGame() {
       nfcPageData[gIdEnd] = NULL;
     }
   }
-  Serial.print("The game ID is: ");
-  Serial.println(&nfcPageData[2]);
+
   uint8_t gameId = idGame(&nfcPageData[2]);
   if (gameId == GAME_UNKNOWN) {
     //TODO: do something
