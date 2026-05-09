@@ -57,6 +57,11 @@
           "color": 17433
         },
         {
+          "id": "N",
+          "name": "New California Republic",
+          "color": 52429
+        },
+        {
           "id": "*",
           "name": "Unaligned",
           "color": 63488

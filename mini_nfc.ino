@@ -56,13 +56,13 @@ uint8_t nfcDataPos;
 char nfcPageData[NFCDATASIZE + 1];
 
 
-#define MAX_FACTION_COUNT  12
-#define MAX_GAME_COUNT      8
-#define MAX_NAME_LEN       32
-#define MAX_CODE_LEN        8
-#define MAX_PATH_LEN       24
+#define MAX_GAME_COUNT       8
+#define MAX_TOTAL_FACTIONS  64
+#define MAX_NAME_LEN        32
+#define MAX_CODE_LEN         8
+#define MAX_PATH_LEN        24
 
-#define GAME_UNKNOWN       99
+#define GAME_UNKNOWN        99
 
 typedef struct {
   char     id;
@@ -71,14 +71,16 @@ typedef struct {
 } GameFaction;
 
 typedef struct {
-  char        name[MAX_NAME_LEN];
-  uint16_t    color;
-  char        code[MAX_CODE_LEN];
-  char        logoFile[MAX_PATH_LEN];
-  uint8_t     factionCount;
-  GameFaction factions[MAX_FACTION_COUNT];
+  char     name[MAX_NAME_LEN];
+  uint16_t color;
+  char     code[MAX_CODE_LEN];
+  char     logoFile[MAX_PATH_LEN];
+  uint8_t  factionStart;
+  uint8_t  factionCount;
 } GameSystem;
 
+GameFaction ALL_FACTIONS[MAX_TOTAL_FACTIONS];
+uint8_t totalFactionCount = 0;
 GameSystem GAMES[MAX_GAME_COUNT];
 uint8_t gameCount = 0;
 
@@ -107,6 +109,7 @@ bool loadGames() {
 
   JsonArray games = doc["games"].as<JsonArray>();
   gameCount = 0;
+  totalFactionCount = 0;
   for (JsonObject game : games) {
     if (gameCount >= MAX_GAME_COUNT) break;
     GameSystem &g = GAMES[gameCount];
@@ -116,15 +119,17 @@ bool loadGames() {
     g.color = game["color"] | (uint16_t)0xFFFF;
 
     JsonArray factions = game["factions"].as<JsonArray>();
+    g.factionStart = totalFactionCount;
     g.factionCount = 0;
     for (JsonObject faction : factions) {
-      if (g.factionCount >= MAX_FACTION_COUNT) break;
-      GameFaction &f = g.factions[g.factionCount];
+      if (totalFactionCount >= MAX_TOTAL_FACTIONS) break;
+      GameFaction &f = ALL_FACTIONS[totalFactionCount];
       const char *idStr = faction["id"] | " ";
       f.id = idStr[0];
       strlcpy(f.name, faction["name"] | "", sizeof(f.name));
       f.color = faction["color"] | (uint16_t)0xFFFF;
       g.factionCount++;
+      totalFactionCount++;
     }
     gameCount++;
   }
@@ -282,10 +287,12 @@ void idMini(char fid, char *name) {
 
 
   GameFaction *faction = NULL;
-  for (int i = 0; i < GAMES[currentGame].factionCount; i++) {
-    if (&GAMES[currentGame].factions[i] == NULL) break;
-    if (GAMES[currentGame].factions[i].id == fid || (fid == NULL && GAMES[currentGame].factions[i].id == '*')) {
-      faction = &GAMES[currentGame].factions[i];
+  uint8_t fstart = GAMES[currentGame].factionStart;
+  uint8_t fcount = GAMES[currentGame].factionCount;
+  for (uint8_t i = 0; i < fcount; i++) {
+    GameFaction &f = ALL_FACTIONS[fstart + i];
+    if (f.id == fid || (fid == NULL && f.id == '*')) {
+      faction = &f;
       break;
     }
   }

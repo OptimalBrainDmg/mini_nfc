@@ -50,11 +50,14 @@ Single-file sketch (`mini_nfc.ino`). Key data structures (fixed-length char arra
 ```cpp
 typedef struct { char id; char name[32]; uint16_t color; } GameFaction;
 typedef struct { char name[32]; uint16_t color; char code[8];
-                 char logoFile[24]; uint8_t factionCount;
-                 GameFaction factions[12]; } GameSystem;
+                 char logoFile[24]; uint8_t factionStart;
+                 uint8_t factionCount; } GameSystem;
 
-GameSystem GAMES[MAX_GAME_COUNT];  // populated by loadGames() at startup
+GameFaction ALL_FACTIONS[MAX_TOTAL_FACTIONS];  // flat pool, all games
+GameSystem  GAMES[MAX_GAME_COUNT];             // populated by loadGames() at startup
 ```
+
+Factions are stored in a flat pool (`ALL_FACTIONS[]`) rather than embedded per-game. Each `GameSystem` holds a `factionStart` index and `factionCount` into that pool. This avoids forcing every game to pre-allocate slots for the largest game's faction count — important when faction counts vary significantly across games. `MAX_TOTAL_FACTIONS` (currently 64) caps the pool; `MAX_GAME_COUNT` (8) caps games.
 
 **Startup sequence (`setup()`):**
 1. Init TFT display
@@ -82,10 +85,10 @@ e.g.  [FWW](B) Brotherhood Paladin
 **Adding a new game:**
 1. Add an entry to `sdcard/games.json` (copy updated file to SD card)
 2. Add the logo BMP to the SD card
-3. No firmware changes needed — `GAMES[]` capacity is `MAX_GAME_COUNT = 8`; `DynamicJsonDocument` capacity is 2048 bytes (increase if JSON grows large)
+3. No firmware changes needed unless limits are hit: `MAX_GAME_COUNT = 8`, `MAX_TOTAL_FACTIONS = 64`, `DynamicJsonDocument` capacity is 2048 bytes (increase if JSON grows large)
 
 **Currently defined games** (in `games.json`):
-- `FWW` — Fallout: Wasteland Warfare (11 factions)
+- `FWW` — Fallout: Wasteland Warfare (12 factions)
 - `BB` — Blood Bowl (2 factions)
 - `GA` — Gundam Assemble (2 factions)
 
