@@ -46,6 +46,21 @@
           "color": 62208
         },
         {
+          "id": "d",
+          "name": "Desciples",
+          "color": 28740
+        },
+        {
+          "id": "o",
+          "name": "Operators",
+          "color": 21204
+        },
+        {
+          "id": "p",
+          "name": "Pack",
+          "color": 50048
+        },
+        {
           "id": "M",
           "name": "Super Mutants",
           "color": 2016

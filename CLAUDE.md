@@ -87,7 +87,7 @@ e.g.  [FWW](BN) Defected Paladin
 **Adding a new game:**
 1. Add an entry to `sdcard/games.json` (copy updated file to SD card)
 2. Add the logo BMP to the SD card
-3. No firmware changes needed unless limits are hit: `MAX_GAME_COUNT = 8`, `MAX_TOTAL_FACTIONS = 64`, `DynamicJsonDocument` capacity is 2048 bytes (increase if JSON grows large)
+3. No firmware changes needed unless limits are hit: `MAX_GAME_COUNT = 8`, `MAX_TOTAL_FACTIONS = 64`, `DynamicJsonDocument` capacity is 4096 bytes (increase if JSON grows large)
 
 **Currently defined games** (in `games.json`):
 - `FWW` — Fallout: Wasteland Warfare (12 factions)

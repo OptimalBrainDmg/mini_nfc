@@ -97,7 +97,7 @@ bool loadGames() {
     return false;
   }
 
-  DynamicJsonDocument doc(2048);
+  DynamicJsonDocument doc(4096);
   DeserializationError err = deserializeJson(doc, file);
   file.close();
 
@@ -216,19 +216,6 @@ void scanMini() {
     miniUid[i] = uid[i];
   }
 
-  // NTAG2x3 cards have 39*4 bytes of user pages (156 user bytes),
-  // starting at page 4 ... larger cards just add pages to the end of
-  // this range:
-
-  // See: http://www.nxp.com/documents/short_data_sheet/NTAG203_SDS.pdf
-
-  // TAG Type       PAGES   USER START    USER STOP
-  // --------       -----   ----------    ---------
-  // NTAG 203       42      4             39
-  // NTAG 213       45      4             39
-  // NTAG 215       135     4             129
-  // NTAG 216       231     4             225
-
   if(nfcReadMiniData()) {
     Serial.println("this is what I got: ");
     Serial.println(&nfcPageData[1]);
@@ -271,8 +258,6 @@ void idMini(char fids[], uint8_t fidCount, char *name) {
 
   tft.fillRect(0, 0, 320, 140, ILI9341_WHITE);
   tft.setCursor(margin, margin);
-
-  // TODO: better word wrap to make it pretty
 
   tft.setTextSize(3); tft.setTextColor(ILI9341_BLACK);
 
