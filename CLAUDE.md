@@ -91,7 +91,7 @@ e.g.  [FWW](B) Brotherhood Paladin
 
 ## Known Gaps / TODOs
 
-- `unableToScan()` (line ~171) logs to Serial only — no display feedback
-- Word-wrap in `idMini()` (line ~258) scans backward for a space but has no fallback if none found
+- `unableToScan()` logs to Serial only — no display feedback
+- Word-wrap in `idMini()` scans backward for a space but has no fallback if none found
 - `determineGame()` silently returns on unknown game code — no error shown
 - `sameMini()` debounce never resets — the same mini is ignored until a different tag is scanned
