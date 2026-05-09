@@ -26,6 +26,7 @@
 #define SD_CS       (5)
 
 void determineGame();
+char getFactionId2();
 
 // PN5232 breakout board attached via I2C
 Adafruit_PN532 nfc(PN532_IRQ, PN532_RESET);
@@ -60,7 +61,6 @@ char nfcPageData[NFCDATASIZE + 1];
 #define MAX_TOTAL_FACTIONS  64
 #define MAX_NAME_LEN        32
 #define MAX_CODE_LEN         8
-#define MAX_PATH_LEN        24
 
 #define GAME_UNKNOWN        99
 
@@ -74,7 +74,6 @@ typedef struct {
   char     name[MAX_NAME_LEN];
   uint16_t color;
   char     code[MAX_CODE_LEN];
-  char     logoFile[MAX_PATH_LEN];
   uint8_t  factionStart;
   uint8_t  factionCount;
 } GameSystem;
@@ -113,9 +112,8 @@ bool loadGames() {
   for (JsonObject game : games) {
     if (gameCount >= MAX_GAME_COUNT) break;
     GameSystem &g = GAMES[gameCount];
-    strlcpy(g.name,     game["name"] | "",  sizeof(g.name));
-    strlcpy(g.code,     game["code"] | "",  sizeof(g.code));
-    strlcpy(g.logoFile, game["logo"] | "",  sizeof(g.logoFile));
+    strlcpy(g.name, game["name"] | "", sizeof(g.name));
+    strlcpy(g.code, game["code"] | "", sizeof(g.code));
     g.color = game["color"] | (uint16_t)0xFFFF;
 
     JsonArray factions = game["factions"].as<JsonArray>();
@@ -234,9 +232,8 @@ void scanMini() {
     Serial.println("this is what I got: ");
     Serial.println(&nfcPageData[1]);
     determineGame();
-    idMini(getFactionId(), getMiniContent());
+    idMini(getFactionId(), getFactionId2(), getMiniContent());
   }
-
 }
 
 void loop(void) {
@@ -258,21 +255,23 @@ void changeGame(uint8_t g) {
     Serial.print("changing game: "); Serial.println(g, DEC);
 
     if (hasStorage) {
-      reader.bmpDimensions(GAMES[currentGame].logoFile, &img_width, &img_height);
-      reader.drawBMP(GAMES[currentGame].logoFile, tft, (320 - img_width)/2, 240 - img_height);
+      char logoPath[18];
+      snprintf(logoPath, sizeof(logoPath), "/logo/%s.bmp", GAMES[currentGame].code);
+      reader.bmpDimensions(logoPath, &img_width, &img_height);
+      reader.drawBMP(logoPath, tft, (320 - img_width)/2, 240 - img_height);
     }
   }
 }
 
-void idMini(char fid, char *name) {
+void idMini(char fid, char fid2, char *name) {
   int margin = 8;
 
   tft.fillRect(0, 0, 320, 140, ILI9341_WHITE);
-  tft.setCursor(margin, margin);  
-  
+  tft.setCursor(margin, margin);
+
   // TODO: better word wrap to make it pretty
 
-  tft.setTextSize(3); tft.setTextColor(ILI9341_BLACK); 
+  tft.setTextSize(3); tft.setTextColor(ILI9341_BLACK);
 
   char *nameStr = name;
   while (strlen(nameStr) > SCREEN_WIDTH_3) {
@@ -285,13 +284,13 @@ void idMini(char fid, char *name) {
   }
   tft.println(nameStr);
 
-
-  GameFaction *faction = NULL;
   uint8_t fstart = GAMES[currentGame].factionStart;
   uint8_t fcount = GAMES[currentGame].factionCount;
+
+  GameFaction *faction = NULL;
   for (uint8_t i = 0; i < fcount; i++) {
     GameFaction &f = ALL_FACTIONS[fstart + i];
-    if (f.id == fid || (fid == NULL && f.id == '*')) {
+    if (f.id == fid || (fid == '\0' && f.id == '*')) {
       faction = &f;
       break;
     }
@@ -303,6 +302,19 @@ void idMini(char fid, char *name) {
     tft.println(faction->name);
   } else {
     tft.println(" ");
+  }
+
+  if (fid2 != '\0') {
+    GameFaction *faction2 = NULL;
+    for (uint8_t i = 0; i < fcount; i++) {
+      GameFaction &f = ALL_FACTIONS[fstart + i];
+      if (f.id == fid2) { faction2 = &f; break; }
+    }
+    if (faction2) {
+      tft.setCursor(margin, tft.getCursorY());
+      tft.setTextColor(faction2->color);
+      tft.println(faction2->name);
+    }
   }
 
   tft.setTextSize(1); tft.setTextColor(ILI9341_RED);
@@ -343,9 +355,19 @@ uint8_t nfcReadMiniData() {
 
 char getFactionId() {
   for (uint8_t i = 0; i < 12; i++) {
-    if ((nfcPageData[i] == ']' || nfcPageData[i] == NULL) && nfcPageData[i+1] == '(') return (char) nfcPageData[i+2];
+    if ((nfcPageData[i] == ']' || nfcPageData[i] == '\0') && nfcPageData[i+1] == '(') return (char) nfcPageData[i+2];
   }
-  return NULL;
+  return '\0';
+}
+
+char getFactionId2() {
+  for (uint8_t i = 0; i < 12; i++) {
+    if ((nfcPageData[i] == ']' || nfcPageData[i] == '\0') && nfcPageData[i+1] == '(') {
+      if (nfcPageData[i+3] != ')') return (char) nfcPageData[i+3];
+      return '\0';
+    }
+  }
+  return '\0';
 }
 
 void determineGame() {
@@ -366,8 +388,11 @@ void determineGame() {
 
 char *getMiniContent() {
   for (uint8_t i = 3; i < 12; i++) {
-    if (nfcPageData[i] == NULL && nfcPageData[i+1] == ' ') return &nfcPageData[i+2];
-    if (nfcPageData[i] == NULL && nfcPageData[i+1] == '(') return &nfcPageData[i+5];
+    if (nfcPageData[i] == '\0' && nfcPageData[i+1] == ' ') return &nfcPageData[i+2];
+    if (nfcPageData[i] == '\0' && nfcPageData[i+1] == '(') {
+      if (nfcPageData[i+3] != ')') return &nfcPageData[i+6]; // (XY) + space
+      return &nfcPageData[i+5];                             // (X) + space
+    }
   }
   return &nfcPageData[NFCDATASIZE];
 }

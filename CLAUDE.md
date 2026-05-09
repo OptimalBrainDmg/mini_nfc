@@ -28,7 +28,7 @@ Serial monitor baud rate: **115200**.
 | Adafruit 2.4" ILI9341 TFT Featherwing | SPI | CS=9, DC=10 |
 | SD card module | SPI | CS=5 |
 
-SD card is **required** — the sketch halts with a fatal error on screen if it is absent or `games.json` fails to parse. BMP files expected at SD card root: `/scan.bmp` (idle splash) plus one logo per game (e.g. `/fww.bmp`, `/bb.bmp`, `/ga.bmp`).
+SD card is **required** — the sketch halts with a fatal error on screen if it is absent or `games.json` fails to parse. BMP files required: `/scan.bmp` (idle splash) plus one logo per game in `/logo/` named by game code (e.g. `/logo/FWW.bmp`, `/logo/BB.bmp`, `/logo/GA.bmp`).
 
 BMP requirements: 24-bit color, uncompressed (no RLE), Windows BITMAPV4HEADER format. Suggested sizes: 320×240 for splash, up to ~320×100 for game logos.
 
@@ -50,8 +50,7 @@ Single-file sketch (`mini_nfc.ino`). Key data structures (fixed-length char arra
 ```cpp
 typedef struct { char id; char name[32]; uint16_t color; } GameFaction;
 typedef struct { char name[32]; uint16_t color; char code[8];
-                 char logoFile[24]; uint8_t factionStart;
-                 uint8_t factionCount; } GameSystem;
+                 uint8_t factionStart; uint8_t factionCount; } GameSystem;
 
 GameFaction ALL_FACTIONS[MAX_TOTAL_FACTIONS];  // flat pool, all games
 GameSystem  GAMES[MAX_GAME_COUNT];             // populated by loadGames() at startup
@@ -76,11 +75,14 @@ Factions are stored in a flat pool (`ALL_FACTIONS[]`) rather than embedded per-g
 **NFC data format** (raw bytes starting at page 6):
 ```
 [GAME_CODE](FACTION_ID) MINI_NAME
+[GAME_CODE](FACTION_IDFACTION2_ID) MINI_NAME    ← optional second faction
 e.g.  [FWW](B) Brotherhood Paladin
+e.g.  [FWW](BN) Defected Paladin
 ```
 - Bytes 0–1 are a header (`[` at index 1); game code starts at index 2
-- `determineGame()` null-terminates `]` **before** `getFactionId()`/`getMiniContent()` are called — call order in `scanMini()` matters
-- `getFactionId()` scans for `](` sequence; `getMiniContent()` scans for the null + space/paren boundary
+- `determineGame()` null-terminates `]` **before** `getFactionId()`/`getFactionId2()`/`getMiniContent()` are called — call order in `scanMini()` matters
+- `getFactionId()` returns the primary faction char; `getFactionId2()` returns the secondary faction char (or `'\0'` if none)
+- `getMiniContent()` skips `(X) ` (5 bytes) for one faction or `(XY) ` (6 bytes) for two
 
 **Adding a new game:**
 1. Add an entry to `sdcard/games.json` (copy updated file to SD card)

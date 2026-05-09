@@ -4,37 +4,36 @@
       "name": "Fallout Wasteland Warfare",
       "color": 31,
       "code": "FWW",
-      "logo": "/fww.bmp",
       "factions": [
-        {
-          "id": "B",
-          "name": "Brotherhood of Steel",
-          "color": 31712
-        },
         {
           "id": "C",
           "name": "Creatures",
           "color": 992
         },
         {
-          "id": "M",
-          "name": "Super Mutants",
-          "color": 2016
+          "id": "B",
+          "name": "Brotherhood of Steel",
+          "color": 31712
         },
         {
-          "id": "R",
-          "name": "Robots",
-          "color": 31727
+          "id": "L",
+          "name": "Caesar's Legion",
+          "color": 45120
         },
         {
-          "id": "r",
-          "name": "Railroad",
-          "color": 32768
-        },        
+          "id": "A",
+          "name": "Children of Atom",
+          "color": 4946
+        },
         {
-          "id": "S",
-          "name": "Survivors",
-          "color": 31
+          "id": "G",
+          "name": "Gunners",
+          "color": 29576
+        },
+        {
+          "id": "N",
+          "name": "New California Republic",
+          "color": 52429
         },
         {
           "id": "X",
@@ -42,24 +41,59 @@
           "color": 63519
         },
         {
+          "id": "f",
+          "name": "Forged",
+          "color": 62208
+        },
+        {
+          "id": "M",
+          "name": "Super Mutants",
+          "color": 2016
+        },
+        {
+          "id": "n",
+          "name": "Nightkin",
+          "color": 29012
+        },
+        {
+          "id": "E",
+          "name": "The Enclave",
+          "color": 0
+        },
+        {
+          "id": "S",
+          "name": "Survivors",
+          "color": 31
+        },
+        {
+          "id": "m",
+          "name": "Minutemen",
+          "color": 13082
+        },
+        {
+          "id": "s",
+          "name": "The Slog",
+          "color": 37766
+        },
+        {
+          "id": "r",
+          "name": "The Railroad",
+          "color": 32768
+        },
+        {
+          "id": "R",
+          "name": "Robots",
+          "color": 31727
+        },
+        {
           "id": "Z",
           "name": "Zetans",
           "color": 2016
         },
         {
-          "id": "E",
-          "name": "Enclave",
-          "color": 0
-        },
-        {
           "id": "I",
-          "name": "Institute",
+          "name": "The Institute",
           "color": 17433
-        },
-        {
-          "id": "N",
-          "name": "New California Republic",
-          "color": 52429
         },
         {
           "id": "*",
@@ -72,7 +106,6 @@
       "name": "Blood Bowl",
       "color": 63488,
       "code": "BB",
-      "logo": "/bb.bmp",
       "factions": [
         {
           "id": "D",
@@ -90,7 +123,6 @@
       "name": "Gundam Assemble",
       "color": 12678,
       "code": "GA",
-      "logo": "/ga.bmp",
       "factions": [
         {
           "id": "E",
