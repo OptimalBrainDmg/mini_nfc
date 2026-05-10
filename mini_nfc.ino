@@ -14,16 +14,18 @@
 #include <Adafruit_PN532.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_ILI9341.h>
+#include <Adafruit_STMPE610.h>
 #include <SdFat.h>                // SD card & FAT filesystem library
 #include <Adafruit_SPIFlash.h>    // SPI / QSPI flash library
 #include <Adafruit_ImageReader.h> // Image-reading functions
 #include <ArduinoJson.h>          // https://arduinojson.org — install via Library Manager
 
 #define PN532_IRQ   (2)
-#define PN532_RESET (3)  
+#define PN532_RESET (3)
 #define TFT_CS      (9)
 #define TFT_DC      (10)
 #define SD_CS       (5)
+#define STMPE_CS    (6)
 
 void determineGame();
 uint8_t parseFactionIds(char[], uint8_t);
@@ -33,6 +35,7 @@ Adafruit_PN532 nfc(PN532_IRQ, PN532_RESET);
 
 // Adafruit 2.4" TFT featherwing
 Adafruit_ILI9341 tft = Adafruit_ILI9341(TFT_CS, TFT_DC);
+Adafruit_STMPE610 ts  = Adafruit_STMPE610(STMPE_CS);
 
 // SD Card and Adafruit ImageReader
 // BMP requirements: 24-bit color, uncompressed (no RLE), Windows BMP format (BITMAPV4HEADER).
@@ -86,6 +89,15 @@ uint8_t gameCount = 0;
 
 int currentGame = -1;
 uint8_t miniUid[] = { 0, 0, 0, 0, 0, 0, 0 };
+
+#define MODE_SCAN 0
+#define MODE_MENU 1
+uint8_t appMode = MODE_SCAN;
+
+// Uncomment to enable touch calibration mode.
+// Tap corners/edges of each button and note the raw p.x values,
+// then update map() in checkTouch() and remove this define.
+//#define CALIBRATE_TOUCH
 
 
 // Reads /games.json from the SD card and populates GAMES[].
@@ -147,6 +159,12 @@ void setup(void) {
   tft.fillScreen(ILI9341_BLACK);
   tft.setTextWrap(true);
 
+  if (!ts.begin()) {
+    tft.setTextColor(ILI9341_RED); tft.setTextSize(2);
+    tft.println("Touch init FAILED");
+    for (;;);
+  }
+
   delay(10);
   
   tft.setTextColor(ILI9341_DARKGREEN); tft.setTextSize(2);
@@ -195,11 +213,7 @@ void scanMini() {
   uint8_t data[32];
   char faction;
   
-  // scan a mini!
-  if (!nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &uidLength)) {
-    Serial.println("failed");
-    Serial.print(uidLength, HEX);
-    Serial.println("");
+  if (!nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &uidLength, 150)) {
     return;
   }
 
@@ -226,9 +240,75 @@ void scanMini() {
   }
 }
 
-void loop(void) {
-  scanMini();
-  delay(100);
+void showMenu() {
+  const char* labels[3] = { "Scan Mode", "Mode 2", "Inventory Mode" };
+  uint16_t    colors[3] = { ILI9341_DARKGREEN, ILI9341_NAVY, ILI9341_MAROON };
+
+  tft.fillScreen(ILI9341_BLACK);
+  for (uint8_t i = 0; i < 3; i++) {
+    int16_t y = i * 80;
+    tft.fillRect(1, y + 1, 318, 78, colors[i]);
+    tft.setTextColor(ILI9341_WHITE);
+    tft.setTextSize(2);
+    int16_t labelW = strlen(labels[i]) * 12;
+    tft.setCursor((320 - labelW) / 2, y + 32);
+    tft.print(labels[i]);
+  }
+}
+
+void checkTouch() {
+  if (!ts.touched()) return;
+
+  // Collect samples for the full duration of the press; keep the latest valid one.
+  // Combining read and wait-for-release in one loop prevents post-release x=0
+  // artifacts from sitting in the FIFO and poisoning the next touch read.
+  TS_Point p;
+  bool valid = false;
+  uint32_t start = millis();
+  while (ts.touched() && millis() - start < 2000) {
+    while (!ts.bufferEmpty()) {
+      TS_Point s = ts.getPoint();
+      if (s.z > 0 && s.x > 0) { p = s; valid = true; }
+    }
+    delay(10);
+  }
+  ts.writeRegister8(STMPE_INT_STA, 0xFF);
+
+  if (!valid) return;
+
+#ifdef CALIBRATE_TOUCH
+  tft.fillScreen(ILI9341_BLACK);
+  tft.setTextColor(ILI9341_WHITE); tft.setTextSize(2);
+  tft.setCursor(8, 80);  tft.print("raw x: "); tft.println(p.x);
+  tft.setCursor(8, 110); tft.print("raw y: "); tft.println(p.y);
+  tft.setCursor(8, 140); tft.print("z:     "); tft.println(p.z);
+  Serial.print("raw x="); Serial.print(p.x);
+  Serial.print(" y="); Serial.print(p.y);
+  Serial.print(" z="); Serial.println(p.z);
+  return;
+#endif
+
+  if (appMode == MODE_SCAN) {
+    appMode = MODE_MENU;
+    showMenu();
+    return;
+  }
+
+  // p.x maps to screen Y in rotation 3 (raw ~150–3900 → screen 0–239)
+  // Update these bounds from CALIBRATE_TOUCH readings if button hits are off.
+  int16_t screenY = constrain(map(p.x, 3900, 300, 0, 239), 0, 239);
+  uint8_t button  = screenY / 80;
+
+  Serial.print("raw x: "); Serial.print(p.x); Serial.print(" ("); Serial.print(screenY); Serial.print(") button: "); Serial.println(button);
+
+  if (button == 0) {
+    appMode = MODE_SCAN;
+    currentGame = -1;
+    memset(miniUid, 0, sizeof(miniUid));
+    if (hasStorage) reader.drawBMP("/scan.bmp", tft, 0, 0);
+  }
+  // button 1: no-op (Mode 2 placeholder)
+  // button 2: Inventory Mode placeholder
 }
 
 uint8_t idGame(char *id) {
@@ -380,5 +460,11 @@ uint8_t findSpace(char *str) {
     if (str[i] == ' ') break;
   }
   return i;
+}
+
+
+void loop(void) {
+  checkTouch();
+  if (appMode == MODE_SCAN) scanMini();
 }
 
