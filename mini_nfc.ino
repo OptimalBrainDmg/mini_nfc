@@ -27,8 +27,10 @@
 #define SD_CS       (5)
 #define STMPE_CS    (6)
 
-void determineGame();
+uint8_t determineGame();
 uint8_t parseFactionIds(char[], uint8_t);
+void showInventoryScreen();
+void recordMini(const char[], char[], uint8_t, char*);
 
 // PN5232 breakout board attached via I2C
 Adafruit_PN532 nfc(PN532_IRQ, PN532_RESET);
@@ -90,9 +92,11 @@ uint8_t gameCount = 0;
 int currentGame = -1;
 uint8_t miniUid[] = { 0, 0, 0, 0, 0, 0, 0 };
 
-#define MODE_SCAN 0
-#define MODE_MENU 1
-uint8_t appMode = MODE_SCAN;
+#define MODE_SCAN      0
+#define MODE_MENU      1
+#define MODE_INVENTORY 2
+uint8_t  appMode       = MODE_SCAN;
+uint16_t inventoryCount = 0;
 
 // Uncomment to enable touch calibration mode.
 // Tap corners/edges of each button and note the raw p.x values,
@@ -206,37 +210,38 @@ void unableToScan() {
 }
 
 void scanMini() {
-  uint8_t success;
-  uint8_t uidLength;  
-  uint8_t uid[] = { 0, 0, 0, 0, 0, 0, 0 }; 
-  char gameBuffer[5];
-  uint8_t data[32];
-  char faction;
-  
-  if (!nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &uidLength, 150)) {
-    return;
+  uint8_t uidLength;
+  uint8_t uid[] = { 0, 0, 0, 0, 0, 0, 0 };
+
+  if (!nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &uidLength, 150)) return;
+  if (uidLength != 7) return;
+  if (sameMini(uid)) return;
+
+  for (uint8_t i = 0; i < 7; i++) miniUid[i] = uid[i];
+
+  if (!nfcReadMiniData()) return;
+
+  // Capture raw tag string before determineGame() null-terminates the ']'
+  char rawNfc[NFCDATASIZE];
+  strlcpy(rawNfc, &nfcPageData[1], sizeof(rawNfc));
+
+  uint8_t gameId = determineGame();
+  if (gameId == GAME_UNKNOWN) return;
+
+  if (appMode == MODE_SCAN) {
+    changeGame(gameId);
+  } else {
+    currentGame = gameId;
   }
 
-  // designed to work with NTAG 215
-  if (uidLength != 7) {
-    Serial.println("This doesn't seem to be an NTAG203 tag (UUID length != 7 bytes)!");
-    return;
-  }
+  char fids[MAX_FACTIONS_PER_MINI];
+  uint8_t fidCount = parseFactionIds(fids, MAX_FACTIONS_PER_MINI);
+  char *miniName = getMiniContent();
 
-  // check to see if it's the same id or not
-  if (sameMini(uid)) { return; }
-
-  for (uint i = 0; i < 7; i++) {
-    miniUid[i] = uid[i];
-  }
-
-  if(nfcReadMiniData()) {
-    Serial.println("this is what I got: ");
-    Serial.println(&nfcPageData[1]);
-    determineGame();
-    char fids[MAX_FACTIONS_PER_MINI];
-    uint8_t fidCount = parseFactionIds(fids, MAX_FACTIONS_PER_MINI);
-    idMini(fids, fidCount, getMiniContent());
+  if (appMode == MODE_INVENTORY) {
+    recordMini(rawNfc, fids, fidCount, miniName);
+  } else {
+    idMini(fids, fidCount, miniName);
   }
 }
 
@@ -254,6 +259,76 @@ void showMenu() {
     tft.setCursor((320 - labelW) / 2, y + 32);
     tft.print(labels[i]);
   }
+}
+
+void showInventoryScreen() {
+  inventoryCount = 0;
+  tft.fillScreen(ILI9341_BLACK);
+  tft.setTextColor(ILI9341_YELLOW); tft.setTextSize(3);
+  tft.setCursor(8, 80);
+  tft.println("INVENTORY");
+  tft.setTextColor(ILI9341_WHITE); tft.setTextSize(2);
+  tft.setCursor(8, 120);
+  tft.println("Scan minis to record.");
+}
+
+// Writes a single CSV field, quoting and escaping if it contains , " or newlines.
+void writeCsvField(SdFile &file, const char *field) {
+  bool needsQuote = false;
+  for (const char *p = field; *p; p++) {
+    if (*p == ',' || *p == '"' || *p == '\n' || *p == '\r') { needsQuote = true; break; }
+  }
+  if (!needsQuote) { file.print(field); return; }
+  file.print('"');
+  for (const char *p = field; *p; p++) {
+    if (*p == '"') file.print('"'); // double any embedded quote
+    file.print(*p);
+  }
+  file.print('"');
+}
+
+void recordMini(const char rawNfc[], char fids[], uint8_t fidCount, char *miniName) {
+  if (!hasStorage) return;
+
+  // Create /inventory directory if needed (mkdir returns false if it exists, ignore that)
+  if (!SD.exists("/inventory")) SD.mkdir("/inventory");
+
+  char path[24];
+  snprintf(path, sizeof(path), "/inventory/%s.csv", GAMES[currentGame].code);
+
+  SdFile file;
+  if (!file.open(path, O_WRITE | O_CREAT | O_APPEND)) {
+    Serial.print("Failed to open "); Serial.println(path);
+    return;
+  }
+
+  if (file.fileSize() == 0) file.println("uid,nfc_data");
+
+  char uidStr[22];
+  snprintf(uidStr, sizeof(uidStr), "%02X:%02X:%02X:%02X:%02X:%02X:%02X",
+           miniUid[0], miniUid[1], miniUid[2], miniUid[3],
+           miniUid[4], miniUid[5], miniUid[6]);
+  file.print(uidStr);
+  file.print(",");
+  writeCsvField(file, rawNfc);
+  file.println();
+  file.close();
+
+  inventoryCount++;
+
+  // Top section: same mini info layout as scan mode
+  idMini(fids, fidCount, miniName);
+
+  // Bottom section: inventory status (replaces game logo area)
+  tft.fillRect(0, 140, 320, 100, ILI9341_BLACK);
+  tft.setTextColor(ILI9341_YELLOW); tft.setTextSize(2);
+  tft.setCursor(8, 148);
+  tft.println(GAMES[currentGame].name);
+  tft.setTextColor(ILI9341_GREEN); tft.setTextSize(1);
+  tft.setCursor(8, 185);
+  tft.print("Saved to /inventory/"); tft.println(GAMES[currentGame].code);
+  tft.setCursor(8, 198);
+  tft.print(inventoryCount); tft.println(" recorded this session");
 }
 
 void checkTouch() {
@@ -288,7 +363,7 @@ void checkTouch() {
   return;
 #endif
 
-  if (appMode == MODE_SCAN) {
+  if (appMode == MODE_SCAN || appMode == MODE_INVENTORY) {
     appMode = MODE_MENU;
     showMenu();
     return;
@@ -308,7 +383,12 @@ void checkTouch() {
     if (hasStorage) reader.drawBMP("/scan.bmp", tft, 0, 0);
   }
   // button 1: no-op (Mode 2 placeholder)
-  // button 2: Inventory Mode placeholder
+  if (button == 2) {
+    appMode = MODE_INVENTORY;
+    currentGame = -1;
+    memset(miniUid, 0, sizeof(miniUid));
+    showInventoryScreen();
+  }
 }
 
 uint8_t idGame(char *id) {
@@ -426,20 +506,15 @@ uint8_t parseFactionIds(char fids[], uint8_t maxFactions) {
   return 0;
 }
 
-void determineGame() {
-  uint8_t gIdEnd;
-  for (gIdEnd = 3; gIdEnd < 12; gIdEnd++) {
+// Null-terminates the ']' in nfcPageData so parseFactionIds/getMiniContent work,
+// then returns the matching game index (or GAME_UNKNOWN).
+uint8_t determineGame() {
+  for (uint8_t gIdEnd = 3; gIdEnd < 12; gIdEnd++) {
     if (nfcPageData[gIdEnd] == ']') {
-      nfcPageData[gIdEnd] = NULL;
+      nfcPageData[gIdEnd] = '\0';
     }
   }
-
-  uint8_t gameId = idGame(&nfcPageData[2]);
-  if (gameId == GAME_UNKNOWN) {
-    //TODO: do something
-    return;
-  }
-  changeGame(gameId);
+  return idGame(&nfcPageData[2]);
 }
 
 char *getMiniContent() {
@@ -465,6 +540,6 @@ uint8_t findSpace(char *str) {
 
 void loop(void) {
   checkTouch();
-  if (appMode == MODE_SCAN) scanMini();
+  if (appMode == MODE_SCAN || appMode == MODE_INVENTORY) scanMini();
 }
 
