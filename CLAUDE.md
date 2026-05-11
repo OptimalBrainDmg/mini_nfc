@@ -26,6 +26,7 @@ Serial monitor baud rate: **115200**.
 |---|---|---|
 | PN532 NFC breakout | I2C | IRQ=2, RESET=3 |
 | Adafruit 2.4" ILI9341 TFT Featherwing | SPI | CS=9, DC=10 |
+| STMPE610 resistive touch controller | SPI | CS=6 |
 | SD card module | SPI | CS=5 |
 
 SD card is **required** — the sketch halts with a fatal error on screen if it is absent or `games.json` fails to parse. BMP files required: `/scan.bmp` (idle splash) plus one logo per game in `/logo/` named by game code (e.g. `/logo/FWW.bmp`, `/logo/BB.bmp`, `/logo/GA.bmp`).
@@ -38,6 +39,7 @@ Install via Arduino Library Manager:
 - `Adafruit PN532` — NFC reader
 - `Adafruit GFX Library` — graphics primitives
 - `Adafruit ILI9341` — TFT display driver
+- `Adafruit STMPE610` — resistive touch controller
 - `SdFat` — SD card / FAT filesystem
 - `ArduinoJson` — parses `games.json` (v6 API, `DynamicJsonDocument`)
 - `Adafruit ImageReader Library` — loads BMP images from SD
@@ -56,41 +58,60 @@ GameFaction ALL_FACTIONS[MAX_TOTAL_FACTIONS];  // flat pool, all games
 GameSystem  GAMES[MAX_GAME_COUNT];             // populated by loadGames() at startup
 ```
 
-Factions are stored in a flat pool (`ALL_FACTIONS[]`) rather than embedded per-game. Each `GameSystem` holds a `factionStart` index and `factionCount` into that pool. This avoids forcing every game to pre-allocate slots for the largest game's faction count — important when faction counts vary significantly across games. `MAX_TOTAL_FACTIONS` (currently 64) caps the pool; `MAX_GAME_COUNT` (8) caps games.
+Factions are stored in a flat pool (`ALL_FACTIONS[]`) rather than embedded per-game. Each `GameSystem` holds a `factionStart` index and `factionCount` into that pool. `MAX_TOTAL_FACTIONS` (currently 64) caps the pool; `MAX_GAME_COUNT` (8) caps games.
+
+**App modes** (`appMode` global):
+- `MODE_SCAN` (0) — actively scanning for NFC tags, displays mini info
+- `MODE_MENU` (1) — full-screen touch menu, NFC scanning paused
+- `MODE_INVENTORY` (2) — scanning active, each new mini appended to SD card CSV
+
+Any touch while in `MODE_SCAN` or `MODE_INVENTORY` opens the menu. The menu has three full-screen buttons (each 80px tall): Scan Mode (top), Mode 2 (middle, no-op), Inventory Mode (bottom).
 
 **Startup sequence (`setup()`):**
-1. Init TFT display
+1. Init TFT display + STMPE610 touch controller — fatal halt if touch init fails
 2. Mount SD — fatal halt if missing
 3. `loadGames()` — parse `games.json` into `GAMES[]` — fatal halt on failure
 4. Init PN532 NFC reader — fatal halt if not found
 5. Draw `/scan.bmp` idle splash
 
 **Main loop:**
-`loop()` → `scanMini()` → on new 7-byte NTAG UID:
+```
+loop() → checkTouch() → if MODE_SCAN or MODE_INVENTORY: scanMini()
+```
+
+`scanMini()` on a new 7-byte NTAG UID:
 1. `nfcReadMiniData()` — reads pages 6–37 (128 bytes) into `nfcPageData[]`
-2. `determineGame()` — finds and null-terminates the game code in `nfcPageData`, calls `changeGame()` which draws the logo
-3. `getFactionId()` / `getMiniContent()` — parse faction char and mini name
-4. `idMini()` — renders mini name (word-wrapped) + faction name/color + UID on screen
+2. Captures `rawNfc[]` (copy of `nfcPageData[1..]`) **before** calling `determineGame()`, which destructively null-terminates the `]` separator
+3. `determineGame()` — null-terminates `]` in `nfcPageData`, returns game index (or `GAME_UNKNOWN`)
+4. If `MODE_SCAN`: calls `changeGame()` which draws the logo; if `MODE_INVENTORY`: sets `currentGame` directly (no logo draw)
+5. `parseFactionIds()` / `getMiniContent()` — parse faction chars and mini name
+6. If `MODE_INVENTORY`: `recordMini()` — writes CSV row, updates display; otherwise `idMini()` — renders to screen
 
 **NFC data format** (raw bytes starting at page 6):
 ```
 [GAME_CODE](FACTION_ID) MINI_NAME
-[GAME_CODE](FACTION_IDFACTION2_ID) MINI_NAME    ← optional second faction
+[GAME_CODE](FACTION_IDFACTION2_ID) MINI_NAME    ← optional second/third faction
 e.g.  [FWW](B) Brotherhood Paladin
 e.g.  [FWW](BN) Defected Paladin
 ```
-- Bytes 0–1 are a header (`[` at index 1); game code starts at index 2
-- `determineGame()` null-terminates `]` **before** `parseFactionIds()`/`getMiniContent()` are called — call order in `scanMini()` matters
-- `parseFactionIds(fids, MAX_FACTIONS_PER_MINI)` fills a `char[]` with up to 3 faction IDs and returns the count; 0 means no faction encoded (falls back to `*` wildcard in `idMini()`)
-- `getMiniContent()` scans forward to find `)` then skips past it — faction count–agnostic
+- `nfcPageData[0]` is a header byte; `[` is at index 1; game code starts at index 2
+- `determineGame()` must be called before `parseFactionIds()`/`getMiniContent()` — they depend on the `]` being null-terminated
+- `parseFactionIds(fids, MAX_FACTIONS_PER_MINI)` returns count 0–3; 0 falls back to `*` wildcard in `idMini()`
+- `getMiniContent()` scans forward past `)` — faction count–agnostic
+
+**Touch controller (`checkTouch()`):**
+The STMPE610 FIFO fills continuously while finger is held and emits `x=0, z=0` artifacts after release. `checkTouch()` uses a unified read+wait-for-release loop, keeping only samples where `z>0 && x>0`, then clears the interrupt register. In rotation 3, raw `p.x` maps to screen Y (inverted: high p.x ≈ 3900 = top of screen, low p.x ≈ 300 = bottom). Uncomment `#define CALIBRATE_TOUCH` to display raw coordinates for recalibration.
+
+**Inventory mode:**
+`recordMini()` appends one row per scan to `/inventory/<GAMECODE>.csv` on the SD card. The directory is created automatically on first write. Files get a `uid,nfc_data` header row on creation and are appended on subsequent sessions. CSV fields are RFC 4180-escaped (quoted if they contain `,`, `"`, or newlines). The display shows the same mini info layout as scan mode (top 140px) with an inventory status footer below.
 
 **Adding a new game:**
 1. Add an entry to `sdcard/games.json` (copy updated file to SD card)
-2. Add the logo BMP to the SD card
+2. Add the logo BMP to `/logo/` on the SD card
 3. No firmware changes needed unless limits are hit: `MAX_GAME_COUNT = 8`, `MAX_TOTAL_FACTIONS = 64`, `DynamicJsonDocument` capacity is 4096 bytes (increase if JSON grows large)
 
 **Currently defined games** (in `games.json`):
-- `FWW` — Fallout: Wasteland Warfare (12 factions)
+- `FWW` — Fallout: Wasteland Warfare (22 factions)
 - `BB` — Blood Bowl (2 factions)
 - `GA` — Gundam Assemble (2 factions)
 
@@ -98,5 +119,8 @@ e.g.  [FWW](BN) Defected Paladin
 
 - `unableToScan()` logs to Serial only — no display feedback
 - Word-wrap in `idMini()` scans backward for a space but has no fallback if none found
-- `determineGame()` silently returns on unknown game code — no error shown
+- `determineGame()` returning `GAME_UNKNOWN` silently drops the scan — no error shown on screen
 - `sameMini()` debounce never resets — the same mini is ignored until a different tag is scanned
+- Debug `Serial.print` statements remain in `checkTouch()` (button mapping output)
+- `CALIBRATE_TOUCH` define block can be removed once calibration is finalized
+- "Mode 2" menu button is a no-op placeholder

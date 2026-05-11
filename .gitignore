@@ -17,4 +17,4 @@ build/
 *.bak
 *.orig
 
-
+sdcard/inventory
