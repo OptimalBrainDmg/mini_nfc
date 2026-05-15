@@ -5,116 +5,28 @@
       "color": 31,
       "code": "FWW",
       "factions": [
-        {
-          "id": "C",
-          "name": "Creatures",
-          "color": 992
-        },
-        {
-          "id": "B",
-          "name": "Brotherhood of Steel",
-          "color": 31712
-        },
-        {
-          "id": "L",
-          "name": "Caesar's Legion",
-          "color": 45120
-        },
-        {
-          "id": "A",
-          "name": "Children of Atom",
-          "color": 4946
-        },
-        {
-          "id": "G",
-          "name": "Gunners",
-          "color": 29576
-        },
-        {
-          "id": "N",
-          "name": "New California Republic",
-          "color": 52429
-        },
-        {
-          "id": "X",
-          "name": "Raiders",
-          "color": 63519
-        },
-        {
-          "id": "f",
-          "name": "Forged",
-          "color": 62208
-        },
-        {
-          "id": "d",
-          "name": "Desciples",
-          "color": 28740
-        },
-        {
-          "id": "o",
-          "name": "Operators",
-          "color": 21204
-        },
-        {
-          "id": "p",
-          "name": "Pack",
-          "color": 50048
-        },
-        {
-          "id": "M",
-          "name": "Super Mutants",
-          "color": 2016
-        },
-        {
-          "id": "n",
-          "name": "Nightkin",
-          "color": 29012
-        },
-        {
-          "id": "E",
-          "name": "The Enclave",
-          "color": 0
-        },
-        {
-          "id": "S",
-          "name": "Survivors",
-          "color": 31
-        },
-        {
-          "id": "m",
-          "name": "Minutemen",
-          "color": 13082
-        },
-        {
-          "id": "s",
-          "name": "The Slog",
-          "color": 37766
-        },
-        {
-          "id": "r",
-          "name": "The Railroad",
-          "color": 32768
-        },
-        {
-          "id": "R",
-          "name": "Robots",
-          "color": 31727
-        },
-        {
-          "id": "Z",
-          "name": "Zetans",
-          "color": 2016
-        },
-        {
-          "id": "I",
-          "name": "The Institute",
-          "color": 17433
-        },
-        {
-          "id": "*",
-          "name": "Unaligned",
-          "color": 63488
-        }
+        { "id": "C", "name": "Creatures",              "color": 992   },
+        { "id": "B", "name": "Brotherhood of Steel",   "color": 31712 },
+        { "id": "L", "name": "Caesar's Legion",        "color": 45120 },
+        { "id": "A", "name": "Children of Atom",       "color": 4946  },
+        { "id": "G", "name": "Gunners",                "color": 29576 },
+        { "id": "N", "name": "New California Republic","color": 52429 },
+        { "id": "X", "name": "Raiders",                "color": 63519 },
+        { "id": "f", "name": "Forged",                 "color": 62208 },
+        { "id": "d", "name": "Desciples",              "color": 28740 },
+        { "id": "o", "name": "Operators",              "color": 21204 },
+        { "id": "p", "name": "Pack",                   "color": 50048 },
+        { "id": "M", "name": "Super Mutants",          "color": 2016  },
+        { "id": "n", "name": "Nightkin",               "color": 29012 },
+        { "id": "E", "name": "The Enclave",            "color": 0     },
+        { "id": "S", "name": "Survivors",              "color": 31    },
+        { "id": "m", "name": "Minutemen",              "color": 13082 },
+        { "id": "s", "name": "The Slog",               "color": 37766 },
+        { "id": "r", "name": "The Railroad",           "color": 32768 },
+        { "id": "R", "name": "Robots",                 "color": 31727 },
+        { "id": "Z", "name": "Zetans",                 "color": 2016  },
+        { "id": "I", "name": "The Institute",          "color": 17433 },
+        { "id": "*", "name": "Unaligned",              "color": 63488 }
       ]
     },
     {
@@ -128,16 +40,8 @@
       "color": 12678,
       "code": "GA",
       "factions": [
-        {
-          "id": "E",
-          "name": "Earth Federation",
-          "color": 1055
-        },
-        {
-          "id": "Z",
-          "name": "Zeon",
-          "color": 27648
-        }
+        { "id": "E", "name": "Earth Federation", "color": 1055  },
+        { "id": "Z", "name": "Zeon",             "color": 27648 }
       ]
     },
     {
@@ -145,7 +49,7 @@
       "color": 63488,
       "code": "BB",
       "factions": [
-        { "id": "A", "name": "Amazons",              "color": 52490 },
+        { "id": "A", "name": "Amazons",               "color": 52490 },
         { "id": "B", "name": "Black Orcs",            "color": 11043 },
         { "id": "b", "name": "Bretonnians",           "color": 4761  },
         { "id": "C", "name": "Chaos Chosen",          "color": 24591 },
