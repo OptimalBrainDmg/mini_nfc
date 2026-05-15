@@ -135,6 +135,12 @@
       ]
     },
     {
+      "name": "Fallout: Factions",
+      "color": 31,
+      "code": "FF",
+      "inheritFactions": "FWW"
+    },
+    {
       "name": "Gundam Assemble",
       "color": 12678,
       "code": "GA",

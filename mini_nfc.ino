@@ -31,6 +31,7 @@ uint8_t determineGame();
 uint8_t parseFactionIds(char[], uint8_t);
 void showInventoryScreen();
 void recordMini(const char[], char[], uint8_t, char*);
+uint8_t idGame(char *);
 
 // PN5232 breakout board attached via I2C
 Adafruit_PN532 nfc(PN532_IRQ, PN532_RESET);
@@ -133,18 +134,30 @@ bool loadGames() {
     strlcpy(g.code, game["code"] | "", sizeof(g.code));
     g.color = game["color"] | (uint16_t)0xFFFF;
 
-    JsonArray factions = game["factions"].as<JsonArray>();
-    g.factionStart = totalFactionCount;
-    g.factionCount = 0;
-    for (JsonObject faction : factions) {
-      if (totalFactionCount >= MAX_TOTAL_FACTIONS) break;
-      GameFaction &f = ALL_FACTIONS[totalFactionCount];
-      const char *idStr = faction["id"] | " ";
-      f.id = idStr[0];
-      strlcpy(f.name, faction["name"] | "", sizeof(f.name));
-      f.color = faction["color"] | (uint16_t)0xFFFF;
-      g.factionCount++;
-      totalFactionCount++;
+    const char *inheritCode = game["inheritFactions"] | "";
+    bool inherited = false;
+    if (inheritCode[0] != '\0') {
+      uint8_t srcIdx = idGame((char *)inheritCode);
+      if (srcIdx != GAME_UNKNOWN) {
+        g.factionStart = GAMES[srcIdx].factionStart;
+        g.factionCount = GAMES[srcIdx].factionCount;
+        inherited = true;
+      }
+    }
+    if (!inherited) {
+      JsonArray factions = game["factions"].as<JsonArray>();
+      g.factionStart = totalFactionCount;
+      g.factionCount = 0;
+      for (JsonObject faction : factions) {
+        if (totalFactionCount >= MAX_TOTAL_FACTIONS) break;
+        GameFaction &f = ALL_FACTIONS[totalFactionCount];
+        const char *idStr = faction["id"] | " ";
+        f.id = idStr[0];
+        strlcpy(f.name, faction["name"] | "", sizeof(f.name));
+        f.color = faction["color"] | (uint16_t)0xFFFF;
+        g.factionCount++;
+        totalFactionCount++;
+      }
     }
     gameCount++;
   }
