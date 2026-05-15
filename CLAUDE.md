@@ -108,14 +108,14 @@ The STMPE610 FIFO fills continuously while finger is held and emits `x=0, z=0` a
 **Adding a new game:**
 1. Add an entry to `sdcard/games.json` (copy updated file to SD card)
 2. Add the logo BMP to `/logo/` on the SD card
-3. No firmware changes needed unless limits are hit: `MAX_GAME_COUNT = 8`, `MAX_TOTAL_FACTIONS = 64`, `DynamicJsonDocument` capacity is 4096 bytes (increase if JSON grows large)
+3. No firmware changes needed unless limits are hit: `MAX_GAME_COUNT = 8`, `MAX_TOTAL_FACTIONS = 64`, `DynamicJsonDocument` capacity is 8192 bytes (increase if JSON grows large)
 
 To share factions with an existing game, add `"inheritFactions": "<CODE>"` instead of a `"factions"` array. The referenced game must appear **earlier** in the `games.json` array (one-pass loading). If the code is not found, `loadGames()` falls back to the `"factions"` array; if that is also absent the game loads with zero factions.
 
 **Currently defined games** (in `games.json`):
 - `FWW` — Fallout: Wasteland Warfare (22 factions)
 - `FF` — Fallout: Factions (inherits FWW factions)
-- `BB` — Blood Bowl (2 factions)
+- `BB` — Blood Bowl (31 factions)
 - `GA` — Gundam Assemble (2 factions)
 
 ## Known Gaps / TODOs

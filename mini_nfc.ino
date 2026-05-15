@@ -114,7 +114,7 @@ bool loadGames() {
     return false;
   }
 
-  DynamicJsonDocument doc(4096);
+  DynamicJsonDocument doc(8192);
   DeserializationError err = deserializeJson(doc, file);
   file.close();
 

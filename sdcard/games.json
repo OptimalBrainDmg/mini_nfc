@@ -118,23 +118,6 @@
       ]
     },
     {
-      "name": "Blood Bowl",
-      "color": 63488,
-      "code": "BB",
-      "factions": [
-        {
-          "id": "D",
-          "name": "Dark Elves",
-          "color": 30735
-        },
-        {
-          "id": "G",
-          "name": "Goblins",
-          "color": 2016
-        }
-      ]
-    },
-    {
       "name": "Fallout: Factions",
       "color": 31,
       "code": "FF",
@@ -155,6 +138,44 @@
           "name": "Zeon",
           "color": 27648
         }
+      ]
+    },
+    {
+      "name": "Blood Bowl",
+      "color": 63488,
+      "code": "BB",
+      "factions": [
+        { "id": "A", "name": "Amazons",              "color": 52490 },
+        { "id": "B", "name": "Black Orcs",            "color": 11043 },
+        { "id": "b", "name": "Bretonnians",           "color": 4761  },
+        { "id": "C", "name": "Chaos Chosen",          "color": 24591 },
+        { "id": "c", "name": "Chaos Dwarves",         "color": 35141 },
+        { "id": "R", "name": "Chaos Renegades",       "color": 30961 },
+        { "id": "D", "name": "Dark Elves",            "color": 30735 },
+        { "id": "d", "name": "Dwarves",               "color": 37735 },
+        { "id": "E", "name": "Elven Union",           "color": 42491 },
+        { "id": "g", "name": "Gnomes",                "color": 21607 },
+        { "id": "G", "name": "Goblins",               "color": 2016  },
+        { "id": "H", "name": "Halflings",             "color": 25926 },
+        { "id": "h", "name": "High Elves",            "color": 63215 },
+        { "id": "M", "name": "Human",                 "color": 15158 },
+        { "id": "I", "name": "Imperial Nobility",     "color": 52389 },
+        { "id": "K", "name": "Khorne",                "color": 45056 },
+        { "id": "L", "name": "Lizardmen",             "color": 1297  },
+        { "id": "N", "name": "Necromantic Horror",    "color": 6799  },
+        { "id": "n", "name": "Norse",                 "color": 36348 },
+        { "id": "U", "name": "Nurgle",                "color": 23653 },
+        { "id": "O", "name": "Ogres",                 "color": 46088 },
+        { "id": "W", "name": "Old World Alliance",    "color": 42160 },
+        { "id": "o", "name": "Orcs",                  "color": 13411 },
+        { "id": "S", "name": "Shambling Undead",      "color": 35700 },
+        { "id": "s", "name": "Skaven",                "color": 31432 },
+        { "id": "T", "name": "Snotlings",             "color": 15778 },
+        { "id": "k", "name": "Tomb Kings",            "color": 56811 },
+        { "id": "X", "name": "Underworld Denizens",   "color": 20652 },
+        { "id": "V", "name": "Vampires",              "color": 45219 },
+        { "id": "w", "name": "Wood Elves",            "color": 11365 },
+        { "id": "*", "name": "Unaligned",             "color": 65535 }
       ]
     }
   ]
