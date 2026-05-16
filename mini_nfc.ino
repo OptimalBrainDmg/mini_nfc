@@ -96,8 +96,9 @@ uint8_t miniUid[] = { 0, 0, 0, 0, 0, 0, 0 };
 #define MODE_SCAN      0
 #define MODE_MENU      1
 #define MODE_INVENTORY 2
-uint8_t  appMode       = MODE_SCAN;
+uint8_t  appMode        = MODE_SCAN;
 uint16_t inventoryCount = 0;
+uint8_t  abMode         = 0;  // 0 = Side A, 1 = Side B
 
 // Uncomment to enable touch calibration mode.
 // Tap corners/edges of each button and note the raw p.x values,
@@ -238,6 +239,18 @@ void scanMini() {
   char rawNfc[NFCDATASIZE];
   strlcpy(rawNfc, &nfcPageData[1], sizeof(rawNfc));
 
+  // A/B mode: if tag has two entries separated by \n, select the appropriate one
+  for (uint8_t i = 1; i < NFCDATASIZE && nfcPageData[i] != '\0'; i++) {
+    if (nfcPageData[i] == '\n') {
+      if (abMode == 0) {
+        nfcPageData[i] = '\0';                                           // A: terminate before B entry
+      } else {
+        memmove(&nfcPageData[1], &nfcPageData[i + 1], NFCDATASIZE - i); // B: shift B entry to start
+      }
+      break;
+    }
+  }
+
   uint8_t gameId = determineGame();
   if (gameId == GAME_UNKNOWN) return;
 
@@ -259,7 +272,7 @@ void scanMini() {
 }
 
 void showMenu() {
-  const char* labels[3] = { "Scan Mode", "Mode 2", "Inventory Mode" };
+  const char* labels[3] = { "Scan Mode", abMode == 0 ? "Side A" : "Side B", "Inventory Mode" };
   uint16_t    colors[3] = { ILI9341_DARKGREEN, ILI9341_NAVY, ILI9341_MAROON };
 
   tft.fillScreen(ILI9341_BLACK);
@@ -395,7 +408,10 @@ void checkTouch() {
     memset(miniUid, 0, sizeof(miniUid));
     if (hasStorage) reader.drawBMP("/scan.bmp", tft, 0, 0);
   }
-  // button 1: no-op (Mode 2 placeholder)
+  if (button == 1) {
+    abMode = (abMode == 0) ? 1 : 0;
+    showMenu();
+  }
   if (button == 2) {
     appMode = MODE_INVENTORY;
     currentGame = -1;
