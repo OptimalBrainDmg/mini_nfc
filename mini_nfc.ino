@@ -410,6 +410,7 @@ void checkTouch() {
   }
   if (button == 1) {
     abMode = (abMode == 0) ? 1 : 0;
+    memset(miniUid, 0, sizeof(miniUid));
     showMenu();
   }
   if (button == 2) {
@@ -518,6 +519,7 @@ uint8_t nfcReadMiniData() {
     }
   }
   nfcPageData[NFCDATASIZE] = 0;
+  Serial.print("what I got: "); Serial.println(nfcPageData);
   return 1;
 }
 

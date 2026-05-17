@@ -65,7 +65,10 @@ Factions are stored in a flat pool (`ALL_FACTIONS[]`) rather than embedded per-g
 - `MODE_MENU` (1) — full-screen touch menu, NFC scanning paused
 - `MODE_INVENTORY` (2) — scanning active, each new mini appended to SD card CSV
 
-Any touch while in `MODE_SCAN` or `MODE_INVENTORY` opens the menu. The menu has three full-screen buttons (each 80px tall): Scan Mode (top), Mode 2 (middle, no-op), Inventory Mode (bottom).
+**A/B mode** (`abMode` global, independent of `appMode`):
+Tags can hold two entries separated by `\n`. `abMode = 0` reads Side A (entry before `\n`), `abMode = 1` reads Side B (entry after `\n`). Single-entry tags are unaffected. Switching A/B resets `miniUid` so the same physical tag is re-scanned immediately.
+
+Any touch while in `MODE_SCAN` or `MODE_INVENTORY` opens the menu. The menu has three full-screen buttons (each 80px tall): Scan Mode (top), A/B toggle — shows current side (middle), Inventory Mode (bottom).
 
 **Startup sequence (`setup()`):**
 1. Init TFT display + STMPE610 touch controller — fatal halt if touch init fails
@@ -81,11 +84,12 @@ loop() → checkTouch() → if MODE_SCAN or MODE_INVENTORY: scanMini()
 
 `scanMini()` on a new 7-byte NTAG UID:
 1. `nfcReadMiniData()` — reads pages 6–37 (128 bytes) into `nfcPageData[]`
-2. Captures `rawNfc[]` (copy of `nfcPageData[1..]`) **before** calling `determineGame()`, which destructively null-terminates the `]` separator
-3. `determineGame()` — null-terminates `]` in `nfcPageData`, returns game index (or `GAME_UNKNOWN`)
-4. If `MODE_SCAN`: calls `changeGame()` which draws the logo; if `MODE_INVENTORY`: sets `currentGame` directly (no logo draw)
-5. `parseFactionIds()` / `getMiniContent()` — parse faction chars and mini name
-6. If `MODE_INVENTORY`: `recordMini()` — writes CSV row, updates display; otherwise `idMini()` — renders to screen
+2. Captures `rawNfc[]` (copy of `nfcPageData[1..]`) — this snapshot includes both A and B sides if present
+3. A/B split — if `\n` found in `nfcPageData`, either null-terminates at `\n` (Side A) or `memmove`s the B entry to the start (Side B)
+4. `determineGame()` — null-terminates `]` in `nfcPageData`, returns game index (or `GAME_UNKNOWN`)
+5. If `MODE_SCAN`: calls `changeGame()` which draws the logo; if `MODE_INVENTORY`: sets `currentGame` directly (no logo draw)
+6. `parseFactionIds()` / `getMiniContent()` — parse faction chars and mini name
+7. If `MODE_INVENTORY`: `recordMini()` — writes CSV row, updates display; otherwise `idMini()` — renders to screen
 
 **NFC data format** (raw bytes starting at page 6):
 ```
@@ -93,6 +97,9 @@ loop() → checkTouch() → if MODE_SCAN or MODE_INVENTORY: scanMini()
 [GAME_CODE](FACTION_IDFACTION2_ID) MINI_NAME    ← optional second/third faction
 e.g.  [FWW](B) Brotherhood Paladin
 e.g.  [FWW](BN) Defected Paladin
+
+A/B dual-entry (newline separator):
+[GAME_CODE](FACTION_ID) MINI_NAME_A\n[GAME_CODE](FACTION_ID) MINI_NAME_B
 ```
 - `nfcPageData[0]` is a header byte; `[` is at index 1; game code starts at index 2
 - `determineGame()` must be called before `parseFactionIds()`/`getMiniContent()` — they depend on the `]` being null-terminated
@@ -123,7 +130,6 @@ To share factions with an existing game, add `"inheritFactions": "<CODE>"` inste
 - `unableToScan()` logs to Serial only — no display feedback
 - Word-wrap in `idMini()` scans backward for a space but has no fallback if none found
 - `determineGame()` returning `GAME_UNKNOWN` silently drops the scan — no error shown on screen
-- `sameMini()` debounce never resets — the same mini is ignored until a different tag is scanned
+- `sameMini()` debounce resets on mode switches and A/B toggle, but not on timeout — the same mini is ignored until a different tag is scanned or the mode changes
 - Debug `Serial.print` statements remain in `checkTouch()` (button mapping output)
 - `CALIBRATE_TOUCH` define block can be removed once calibration is finalized
-- "Mode 2" menu button is a no-op placeholder
