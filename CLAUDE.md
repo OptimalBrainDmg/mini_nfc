@@ -11,14 +11,14 @@ Arduino firmware that reads NFC-tagged tabletop gaming miniatures and displays f
 There is no Makefile or PlatformIO config. Use the **Arduino IDE** or **Arduino CLI**:
 
 ```bash
-# Arduino CLI — compile
-arduino-cli compile --fqbn <board-fqbn> mini_nfc
+# Arduino CLI — compile (board is an Adafruit Feather; adjust fqbn as needed)
+arduino-cli compile --fqbn adafruit:samd:adafruit_feather_m0 mini_nfc
 
 # Arduino CLI — upload
-arduino-cli upload -p <port> --fqbn <board-fqbn> mini_nfc
+arduino-cli upload -p <port> --fqbn adafruit:samd:adafruit_feather_m0 mini_nfc
 ```
 
-Serial monitor baud rate: **115200**.
+Serial monitor baud rate: **115200**. There is no test suite; all verification is done on hardware.
 
 ## Hardware
 
@@ -28,6 +28,8 @@ Serial monitor baud rate: **115200**.
 | Adafruit 2.4" ILI9341 TFT Featherwing | SPI | CS=9, DC=10 |
 | STMPE610 resistive touch controller | SPI | CS=6 |
 | SD card module | SPI | CS=5 |
+
+A 3D-printable enclosure is in `enclosure/mini-scanner.scad` (OpenSCAD). It houses the Feather + TFT Featherwing + PN532 breakout.
 
 SD card is **required** — the sketch halts with a fatal error on screen if it is absent or `games.json` fails to parse. BMP files required: `/scan.bmp` (idle splash) plus one logo per game in `/logo/` named by game code (e.g. `/logo/FWW.bmp`, `/logo/BB.bmp`, `/logo/GA.bmp`).
 
@@ -101,7 +103,8 @@ e.g.  [FWW](BN) Defected Paladin
 A/B dual-entry (newline separator):
 [GAME_CODE](FACTION_ID) MINI_NAME_A\n[GAME_CODE](FACTION_ID) MINI_NAME_B
 ```
-- `nfcPageData[0]` is a header byte; `[` is at index 1; game code starts at index 2
+- `nfcPageData[0]` is byte 0 of NFC page 6 and is unused (skipped); `[` is at index 1; game code starts at index 2
+- `rawNfc[]` is captured from `&nfcPageData[1]` (skips the unused byte 0) — this is what gets written to the CSV
 - `determineGame()` must be called before `parseFactionIds()`/`getMiniContent()` — they depend on the `]` being null-terminated
 - `parseFactionIds(fids, MAX_FACTIONS_PER_MINI)` returns count 0–3; 0 falls back to `*` wildcard in `idMini()`
 - `getMiniContent()` scans forward past `)` — faction count–agnostic
@@ -116,6 +119,21 @@ The STMPE610 FIFO fills continuously while finger is held and emits `x=0, z=0` a
 1. Add an entry to `sdcard/games.json` (copy updated file to SD card)
 2. Add the logo BMP to `/logo/` on the SD card
 3. No firmware changes needed unless limits are hit: `MAX_GAME_COUNT = 8`, `MAX_TOTAL_FACTIONS = 64`, `DynamicJsonDocument` capacity is 8192 bytes (increase if JSON grows large)
+
+**games.json field reference:**
+```json
+{
+  "name": "Display name",       // shown in inventory mode
+  "code": "ABC",                // 1–7 chars; used in NFC tags and file paths
+  "color": 31712,               // RGB565 integer (16-bit, not CSS hex)
+  "factions": [
+    { "id": "B", "name": "Brotherhood of Steel", "color": 31712 }
+  ]
+}
+```
+- **Faction `id` is a single character and is case-sensitive** (`B` ≠ `b`). IDs are scoped per game so the same character can mean different factions in different games.
+- **`color` values are RGB565** (5 bits red, 6 bits green, 5 bits blue). Example conversions: `ILI9341_WHITE = 65535`, `ILI9341_RED = 63488`, `ILI9341_GREEN = 2016`. Convert from 24-bit RGB: `((r>>3)<<11) | ((g>>2)<<5) | (b>>3)`.
+- The `*` faction id is a wildcard — shown when the tag has no faction field (`fidCount == 0` in `idMini()`).
 
 To share factions with an existing game, add `"inheritFactions": "<CODE>"` instead of a `"factions"` array. The referenced game must appear **earlier** in the `games.json` array (one-pass loading). If the code is not found, `loadGames()` falls back to the `"factions"` array; if that is also absent the game loads with zero factions.
 
