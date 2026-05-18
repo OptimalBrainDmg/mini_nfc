@@ -1,5 +1,3 @@
-
-
 m25 = 2.22;
 m3 = 2.76;
 
@@ -12,50 +10,103 @@ nfc = [50, 120, wall];
 
 inner_dims = [110, 121];
 bottom_height = 20;
+top_height =12;
+magnets = [6.4, 0, 3.5];
 
-//display();
-//nfc();
 
-difference() {
+
+bottom();
+//top(); 
+
+
+
+module top() {
+    display_pos = [wall+(inner_dims.x-display.x)/2+display_offset/2, 
+                   inner_dims.y+2*wall-display.y-10, 0];
     union() {
         difference() {
-            rcube([inner_dims.x + 2*wall, inner_dims.y + 2*wall, bottom_height+5], 2);
-            translate([-0.01, -0.01, bottom_height]) cube([inner_dims.x + 2*wall+1, inner_dims.y + 2*wall+1, bottom_height]);
-            translate([wall, wall, wall]) cube([inner_dims.x, inner_dims.y, bottom_height]);
-
-            // clear the post hole areas for the magnets
-            translate([4.5,4.5,wall]) cylinder(d=9, h=bottom_height);
-            translate([inner_dims.x+2*wall-4.5,4.5,wall]) cylinder(d=9, h=bottom_height);
-            translate([inner_dims.x+2*wall-4.5,inner_dims.y+2*wall-4.5,wall]) cylinder(d=9, h=bottom_height);
-            translate([4.5,inner_dims.y+2*wall-4.5,wall]) cylinder(d=9, h=bottom_height);
-
-            // clear area for the nfc mount
-            translate([wall+(inner_dims.x-nfc.x)/2, wall+(inner_dims.y-nfc.y)/2 ,0.1]) 
-                cube([nfc.x,nfc.y,10]);
+            case(top_height);
             
-
+            translate(display_pos) translate([0,0,-0.01]) cube(display);
+            translate([wall+inner_dims.x/2,40,-0.01]) post(30, 10, 0.21, 0.21);
         }
-       
-        // corner magnets
-        translate([4.5,4.5,wall]) post(9, 6, bottom_height-wall, 2.8);
-        translate([inner_dims.x+2*wall-4.5,4.5,wall]) post(9, 6, bottom_height-wall, 2.8);
-        translate([inner_dims.x+2*wall-4.5,inner_dims.y+2*wall-4.5,wall]) post(9, 6, bottom_height-wall, 2.8);
-        translate([4.5,inner_dims.y+2*wall-4.5,wall]) post(9, 6, bottom_height-wall, 2.8);
-        
-        // NFC mount
-        translate([wall+(inner_dims.x-nfc.x)/2, wall+(inner_dims.y-nfc.y)/2 ,0.1]) nfc();
-
-        // power switch mount block
-        translate([wall+10, 2*wall+inner_dims.y-5, wall]) cube([12, 5, 7]);
+        translate(display_pos) display();
     }
 
-    // power switch opening
-    translate([wall+11.5, 2*wall+inner_dims.y-6, wall+1.5]) cube([9, 4, 4]);
-    translate([wall+11.5+2.7, 2*wall+inner_dims.y-5, wall+1.5+1]) cube([3.6, 10, 2]);
-    
-    
 }
 
+module bottom() {
+    difference() {
+        union() {
+            case(bottom_height, false);
+            
+            // NFC mount
+            translate([wall+(inner_dims.x-nfc.x)/2, wall+(inner_dims.y-nfc.y)/2 ,0.1]) nfc();
+
+            // power switch mount block
+            translate([wall+10, 2*wall+inner_dims.y-5, wall]) cube([12, 5, 12]);
+            
+            // charger base
+            translate([inner_dims.x+wall-19.999, inner_dims.y+2*wall-10-19,wall]) cube([20, 19, 5]);
+        }
+
+        // power switch opening
+        translate([wall+11.5, 2*wall+inner_dims.y-6, wall+5+1.5]) cube([9, 4, 4]);
+        translate([wall+11.5+2.7, 2*wall+inner_dims.y-5, wall+5+1.5+1]) cube([3.6, 10, 2]);
+
+        // charger base
+        translate([inner_dims.x+wall-20, inner_dims.y+2*wall-10-17,wall+1]) cube([20, 15, 5]);
+        translate([inner_dims.x+wall-20, inner_dims.y+2*wall-10-18.1,wall+1]) cube([30, 17.2, 1.5]);
+        translate([inner_dims.x+wall-20, inner_dims.y+2*wall-10-14.5,wall+2.499]) cube([30, 10, 4]);
+        translate([inner_dims.x+wall-20, inner_dims.y+2*wall-20-14.5,wall]) cube([12, 30, 40]);
+    }
+}
+
+module case(height, male=true) {
+    union() {
+        difference() {
+            rcube([inner_dims.x + 2*wall, inner_dims.y + 2*wall, height+5], 2);
+            translate([-0.01, -0.01, height]) cube([inner_dims.x + 2*wall+1, inner_dims.y + 2*wall+1, height]);
+            translate([wall, wall, wall]) cube([inner_dims.x, inner_dims.y, height]);
+
+            // clear the post hole areas for the magnets
+            magholes(height);
+            
+            // guides to make the case "snap" nicely
+            if (!male) {
+                color("purple") translate([wall-1.1, wall+15, height-1.1]) cube([1.2, inner_dims.y-30, 10]); 
+                color("purple") translate([inner_dims.x+wall-0.1, wall+15, height-1.1]) cube([1.2, inner_dims.y-30, 10]); 
+                color("purple") translate([wall+15, inner_dims.y+wall-0.1, height-1.1]) cube([inner_dims.x-30, 1.2, 10]); 
+                color("purple") translate([wall+15, wall-1.1, height-1.1]) cube([inner_dims.x-30, 1.2, 10]); 
+            }
+        }
+               
+        // corner magnets
+        magnets(height);
+        
+        // guides to make the case "snap" nicely
+        if (male) {
+            color("purple") translate([wall-1, wall+16, height]) cube([1, inner_dims.y-32, 1]); 
+            color("purple") translate([inner_dims.x+wall, wall+16, height]) cube([1, inner_dims.y-32, 1]); 
+            color("purple") translate([wall+16, inner_dims.y+wall, height]) cube([inner_dims.x-32, 1, 1]); 
+            color("purple") translate([wall+16, wall-1, height]) cube([inner_dims.x-32, 1, 1]);             
+        }
+    }
+}
+
+module magholes(height) {
+    translate([4.5,4.5,wall]) cylinder(d=9, h=height);
+    translate([inner_dims.x+2*wall-4.5,4.5,wall]) cylinder(d=9, h=height);
+    translate([inner_dims.x+2*wall-4.5,inner_dims.y+2*wall-4.5,wall]) cylinder(d=9, h=height);
+    translate([4.5,inner_dims.y+2*wall-4.5,wall]) cylinder(d=9, h=height);
+}
+
+module magnets(height) {
+    translate([4.5,4.5,wall]) post(9, 6, height-wall, 2.8);
+    translate([inner_dims.x+2*wall-4.5,4.5,wall]) post(9, 6, height-wall, 2.8);
+    translate([inner_dims.x+2*wall-4.5,inner_dims.y+2*wall-4.5,wall]) post(9, 6, height-wall, 2.8);
+    translate([4.5,inner_dims.y+2*wall-4.5,wall]) post(9, 6, height-wall, 2.8);
+}
 
 module nfc() {
     $fn = 10;
@@ -92,6 +143,7 @@ module display() {
 }
 
 module post(od, id, height, depth) {
+    $fn = 32;
     difference() {
         cylinder(d=od, h=height);
         translate([0, 0, height - depth]) cylinder(d=id, h=depth+0.01);
